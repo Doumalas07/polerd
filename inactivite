@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyse et Extraction des Données</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.2/xlsx.full.min.js"></script>
+    <style>
+        /* Styles généraux */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h2, h3 {
+            color: #1a73e8; /* Bleu pour les titres principaux */
+        }
+
+        h3 {
+            border-bottom: 2px solid #1a73e8;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+
+        /* Styles pour les boutons */
+        button {
+            background-color: #ff6f00; /* Orange */
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 100%;
+            max-width: 200px;
+        }
+
+        button:hover {
+            background-color: #e65a00; /* Orange plus foncé pour hover */
+        }
+
+        /* Container pour les tableaux, en deux colonnes */
+        #tablesContainer {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: space-between;
+        }
+
+        /* Styles pour chaque conteneur de tableau */
+        .table-wrapper {
+            flex: 1 1 calc(50% - 20px); /* Prend la moitié de la largeur moins l'espace entre les colonnes */
+            box-sizing: border-box;
+            margin-bottom: 20px;
+            max-width: calc(50% - 20px); /* Limite chaque tableau à 50% de la largeur */
+        }
+
+        /* Styles pour les tableaux */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+
+        th, td {
+            border: 1px solid #ff6f00; /* Bordures orange */
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #1a73e8; /* Bleu pour l'en-tête */
+            color: white;
+        }
+
+        td {
+            background-color: #f1f8ff; /* Fond bleu clair pour les cellules */
+        }
+
+        /* Media query pour les petits écrans */
+        @media (max-width: 768px) {
+            .table-wrapper {
+                flex: 1 1 100%; /* Chaque tableau prend 100% de la largeur sur les petits écrans */
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page d'Amélioration</title>
+    <style>
+        /* Centre le titre H2 */
+        h2 {
+            text-align: center;
+            color: #1a73e8; /* Couleur bleue */
+            font-size: 24px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<h2>PÔLE R&D - Amélioration Inactivité</h2>
+
+</body>
+
+<!-- Charger le fichier CSV ou Excel -->
+<input type="file" id="fileInput" accept=".csv, .xlsx" />
+<button onclick="processFile()">Analyser Extraction</button>
+
+<div id="fieldSelection" style="display:none;">
+    <h3>Choisissez les champs à afficher :</h3>
+    <div id="fieldsContainer"></div>
+
+    <h3>Date la plus récente trouvée dans le fichier :</h3>
+    <p id="latestDateDisplay"></p>
+
+    <h3>Filtrer par date (Date inférieure à la date sélectionnée, format : dd-mm-yyyy hh:mm:ss) :</h3>
+    <input type="text" id="dateFilter" placeholder="29-10-2024 19:55:57" />
+    
+    <button onclick="displayTables(false)">Afficher les tableaux sans filtre</button>
+    <button onclick="displayTables(true)">Afficher les tableaux avec filtre</button>
+</div>
+
+<div id="tablesContainer"></div>
+
+<script>
+let dataHeaders = []; // Stocke les noms de colonnes
+let groupedData = {}; // Stocke les données groupées
+let latestDateStr = ""; // Stocke la date la plus récente en format chaîne
+
+// Fonction pour traiter le fichier chargé
+function processFile() {
+    const fileInput = document.getElementById('fileInput').files[0];
+    if (!fileInput) {
+        alert('Veuillez sélectionner un fichier');
+        return;
+    }
+
+    const reader = new FileReader();
+
+    if (fileInput.name.endsWith('.xlsx')) {
+        reader.readAsArrayBuffer(fileInput);
+        reader.onload = function(event) {
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+            if (jsonData.length === 0) {
+                alert("Le fichier est vide ou le format n'est pas correct.");
+                return;
+            }
+
+            analyzeData(jsonData);
+        };
+    } else if (fileInput.name.endsWith('.csv')) {
+        reader.readAsText(fileInput, 'UTF-8');
+        reader.onload = function(event) {
+            const csvData = event.target.result;
+            const jsonData = XLSX.utils.sheet_to_json(XLSX.read(csvData, { type: 'string' }).Sheets.Sheet1, { header: 1 });
+
+            if (jsonData.length === 0) {
+                alert("Le fichier est vide ou le format n'est pas correct.");
+                return;
+            }
+
+            analyzeData(jsonData);
+        };
+    } else {
+        alert("Format de fichier non supporté. Veuillez utiliser un fichier .csv ou .xlsx.");
+    }
+}
+
+// Fonction pour analyser les données et afficher les options de sélection de champs
+function analyzeData(data) {
+    dataHeaders = data[0]; // Enregistre les noms des colonnes
+    const rows = data.slice(1);
+
+    const groupIndex = dataHeaders.indexOf("Groupe");
+    const nameIndex = dataHeaders.indexOf("Nom");
+    const dateIndex = dataHeaders.indexOf("Dernière connexion");
+    const simIndex = dataHeaders.indexOf("Numéro SIM");
+    const imeiIndex = dataHeaders.indexOf("IMEI ou identifiant de l'Appareil");
+
+    if (groupIndex === -1 || nameIndex === -1 || dateIndex === -1 || simIndex === -1 || imeiIndex === -1) {
+        alert("Certaines colonnes sont manquantes dans le fichier. Veuillez vérifier le fichier et réessayer.");
+        return;
+    }
+
+    groupedData = {};
+
+    let latestDate = null;
+
+    // Filtrer les données par groupe et trouver la date la plus récente
+    rows.forEach(row => {
+        const group = row[groupIndex];
+        if (!groupedData[group]) groupedData[group] = [];
+        groupedData[group].push(row);
+
+        const rowDateStr = row[dateIndex];
+        if (typeof rowDateStr === 'string') {
+            const rowDate = parseDate(rowDateStr);
+            if (rowDate && (!latestDate || rowDate > latestDate)) {
+                latestDate = rowDate;
+                latestDateStr = rowDateStr;
+            }
+        }
+    });
+
+    // Afficher la date la plus récente
+    document.getElementById('latestDateDisplay').innerText = latestDateStr || "Aucune date valide trouvée";
+
+    // Afficher les options de sélection de champs
+    displayFieldOptions(dataHeaders);
+}
+
+// Fonction de conversion personnalisée pour les dates au format dd-mm-yyyy hh:mm:ss
+function parseDate(dateStr) {
+    const [day, month, year, hour, minute, second] = dateStr.split(/[- :]/).map(Number);
+    return new Date(year, month - 1, day, hour, minute, second);
+}
+
+// Fonction pour afficher les options de sélection de champs
+function displayFieldOptions(headers) {
+    const fieldsContainer = document.getElementById('fieldsContainer');
+    fieldsContainer.innerHTML = ''; // Réinitialise le contenu
+
+    headers.forEach(header => {
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = header;
+        checkbox.value = header;
+        checkbox.checked = true; // Coche toutes les cases par défaut
+
+        const label = document.createElement('label');
+        label.htmlFor = header;
+        label.innerText = header;
+
+        fieldsContainer.appendChild(checkbox);
+        fieldsContainer.appendChild(label);
+        fieldsContainer.appendChild(document.createElement('br'));
+    });
+
+    document.getElementById('fieldSelection').style.display = 'block'; // Affiche les options de sélection
+}
+
+// Fonction pour afficher les tableaux en fonction des champs sélectionnés et du filtre de date
+function displayTables(applyFilter) {
+    const selectedFields = Array.from(document.querySelectorAll('#fieldsContainer input:checked')).map(input => input.value);
+    const dateFilterStr = document.getElementById('dateFilter').value;
+    const dateFilter = applyFilter && dateFilterStr ? parseDate(dateFilterStr) : null;
+
+        const container = document.getElementById('tablesContainer');
+    container.innerHTML = ''; // Réinitialise les tableaux
+
+    Object.keys(groupedData).forEach(group => {
+        const filteredRows = groupedData[group].filter(row => {
+            const dateIndex = dataHeaders.indexOf("Dernière connexion");
+            const rowDateStr = row[dateIndex];
+
+            if (typeof rowDateStr === 'string') {
+                const rowDate = parseDate(rowDateStr);
+                return !applyFilter || !dateFilter || (rowDate && rowDate < dateFilter);
+            }
+            return !applyFilter;
+        }).map(row => {
+            const filteredRow = {};
+            selectedFields.forEach(field => {
+                filteredRow[field] = row[dataHeaders.indexOf(field)];
+            });
+            return filteredRow;
+        });
+
+        // Affiche uniquement les tableaux avec des valeurs
+        if (filteredRows.length > 0) {
+            const tableContainer = createTable(group, filteredRows, selectedFields);
+            container.appendChild(tableContainer);
+        }
+    });
+}
+
+// Fonction pour créer un tableau HTML et ajouter les boutons de copie
+function createTable(groupName, rows, selectedFields) {
+    // Créer un div wrapper pour chaque tableau avec les styles responsives
+    const tableWrapper = document.createElement('div');
+    tableWrapper.classList.add('table-wrapper');
+
+    const title = document.createElement('h3');
+    title.innerText = `Groupe: ${groupName}`;
+    tableWrapper.appendChild(title);
+
+    const table = document.createElement('table');
+    table.border = "1";
+
+    const headerRow = table.insertRow();
+    selectedFields.forEach(header => {
+        const cell = document.createElement('th');
+        cell.innerText = header;
+        headerRow.appendChild(cell);
+    });
+
+    rows.forEach(row => {
+        const tableRow = table.insertRow();
+        selectedFields.forEach(field => {
+            const cell = tableRow.insertCell();
+            cell.innerText = row[field] || ''; // Affiche la donnée ou une chaîne vide si non définie
+        });
+    });
+
+    // Bouton pour copier le tableau tel qu'il s'affiche avec son style
+    const copyDisplayedButton = document.createElement('button');
+    copyDisplayedButton.innerText = "Copier le tableau tel qu'affiché";
+    copyDisplayedButton.onclick = () => copyTableWithStyles(table);
+    tableWrapper.appendChild(copyDisplayedButton);
+
+    tableWrapper.appendChild(table);
+    return tableWrapper;
+}
+
+// Fonction pour copier le tableau avec son style visuel
+function copyTableWithStyles(table) {
+    // Crée un document temporaire pour copier le style
+    const tempDiv = document.createElement("div");
+    tempDiv.appendChild(table.cloneNode(true)); // Clonage du tableau avec les enfants
+
+    // Ajout du style en ligne pour copier le style visuel
+    tempDiv.querySelectorAll("table, th, td").forEach(el => {
+        const style = window.getComputedStyle(el);
+        el.style.border = style.border;
+        el.style.padding = style.padding;
+        el.style.backgroundColor = style.backgroundColor;
+        el.style.color = style.color;
+        el.style.fontSize = style.fontSize;
+        el.style.textAlign = style.textAlign;
+    });
+
+    // Convertit le contenu en HTML et copie dans le presse-papiers
+    const htmlContent = tempDiv.innerHTML;
+    navigator.clipboard.writeText(htmlContent).then(() => {
+        alert("Tableau copié tel qu'affiché avec son style !");
+    }).catch(err => {
+        console.error("Erreur lors de la copie du tableau : ", err);
+    });
+}
+
+// Fonction de conversion personnalisée pour les dates au format dd-mm-yyyy hh:mm:ss
+function parseDate(dateStr) {
+    const [day, month, year, hour, minute, second] = dateStr.split(/[- :]/).map(Number);
+    return new Date(year, month - 1, day, hour, minute, second);
+}
+
+</script>
+
+</body>
+</html>
+
