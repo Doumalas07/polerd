@@ -10,10 +10,12 @@
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
+            font-size: 14px; /* Réduction de la taille de la police */
         }
 
         h2, h3 {
             color: #1a73e8; /* Bleu pour les titres principaux */
+            font-size: 18px; /* Réduction de la taille de la police des titres */
         }
 
         h3 {
@@ -27,11 +29,11 @@
             background-color: #ff6f00; /* Orange */
             color: white;
             border: none;
-            padding: 10px;
+            padding: 8px; /* Réduction de la taille du bouton */
             cursor: pointer;
             margin: 5px 0;
             border-radius: 4px;
-            font-size: 14px;
+            font-size: 12px; /* Réduction de la taille de la police */
             width: 100%;
             max-width: 200px;
         }
@@ -65,8 +67,9 @@
 
         th, td {
             border: 1px solid #ff6f00; /* Bordures orange */
-            padding: 10px;
+            padding: 8px; /* Réduction de la taille des cellules */
             text-align: left;
+            font-size: 12px; /* Réduction de la taille de la police dans le tableau */
         }
 
         th {
@@ -89,25 +92,7 @@
 </head>
 <body>
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Page d'Amélioration</title>
-    <style>
-        /* Centre le titre H2 */
-        h2 {
-            text-align: center;
-            color: #1a73e8; /* Couleur bleue */
-            font-size: 24px;
-            margin-top: 20px;
-        }
-    </style>
-</head>
-<body>
-
 <h2>PÔLE R&D - Amélioration Inactivité</h2>
-
-</body>
 
 <!-- Charger le fichier CSV ou Excel -->
 <input type="file" id="fileInput" accept=".csv, .xlsx" />
@@ -122,7 +107,14 @@
 
     <h3>Filtrer par date (Date inférieure à la date sélectionnée, format : dd-mm-yyyy hh:mm:ss) :</h3>
     <input type="text" id="dateFilter" placeholder="29-10-2024 19:55:57" />
-    
+
+    <!-- Ajout du filtre de sélection pour le message -->
+    <h3>Choisissez le message à afficher :</h3>
+    <select id="messageFilter">
+        <option value="Freetrack">Option Freetrack</option>
+        <option value="Libellule">Option Libellule</option>
+    </select>
+
     <button onclick="displayTables(false)">Afficher les tableaux sans filtre</button>
     <button onclick="displayTables(true)">Afficher les tableaux avec filtre</button>
 </div>
@@ -250,13 +242,14 @@ function displayFieldOptions(headers) {
     document.getElementById('fieldSelection').style.display = 'block'; // Affiche les options de sélection
 }
 
-// Fonction pour afficher les tableaux en fonction des champs sélectionnés et du filtre de date
+// Fonction pour afficher les tableaux en fonction des champs sélectionnés, du filtre de date et du message choisi
 function displayTables(applyFilter) {
     const selectedFields = Array.from(document.querySelectorAll('#fieldsContainer input:checked')).map(input => input.value);
     const dateFilterStr = document.getElementById('dateFilter').value;
     const dateFilter = applyFilter && dateFilterStr ? parseDate(dateFilterStr) : null;
+    const selectedMessage = document.getElementById('messageFilter').value; // Récupère l'option de message sélectionnée
 
-        const container = document.getElementById('tablesContainer');
+    const container = document.getElementById('tablesContainer');
     container.innerHTML = ''; // Réinitialise les tableaux
 
     Object.keys(groupedData).forEach(group => {
@@ -279,13 +272,23 @@ function displayTables(applyFilter) {
 
         // Affiche uniquement les tableaux avec des valeurs
         if (filteredRows.length > 0) {
+            // Ajoute le message correspondant avant chaque tableau, basé sur l'option sélectionnée
+            const messageContainer = document.createElement('div');
+            const message = (selectedMessage === "Freetrack")
+                ? `Bonjour cher partenaire "${group}",<br>Nous espérons que vous allez bien. Nous souhaitons vous informer que les gps de vos véhicules sont actuellement répertoriés comme inactifs sur notre plateforme de géolocalisation. Merci de nous préciser l’état de ces véhicules : sont-ils garés volontairement, en garage, ou en activité ? Vous trouverez ci-dessous la liste des véhicules identifiés comme inactifs sur la plateforme de géolocalisation.<br>Pour toute question ou préoccupation, n’hésitez pas à nous contacter.`
+                : `Bonjour cher partenaire "${group}",<br>Nous constatons que la balise de(s) camion(s) ci-dessous est inactive depuis une certaine date indiquée dans le tableau. Merci de nous indiquer l’état de votre camion s’il est garé volontairement, au garage, en attente de bon ou en activité et de vérifier à votre niveau sur votre plateforme l’état du GPS via le lien suivant:<br><a href="https://libellule.sudcontractors.com/">https://libellule.sudcontractors.com/</a><br>Dans le cas où vous constatez un dysfonctionnement de GPS, merci de mettre le véhicule à notre disposition pour maintenance avant tout chargement ou livraison. A défaut de mettre votre véhicule à notre disposition pour maintenance dans le cas d’un dysfonctionnement de l’équipement GPS, toutes les livraisons opérées dans l’intervalle des dates indiquées dans le tableau par les véhicules jusqu’à la date de leur maintenance ne sauraient être validées lors du contrôle de la péréquation.`;
+
+            messageContainer.innerHTML = `<p>${message}</p>`;
+            container.appendChild(messageContainer);
+
+            // Crée le tableau et l'ajoute au conteneur principal
             const tableContainer = createTable(group, filteredRows, selectedFields);
             container.appendChild(tableContainer);
         }
     });
 }
 
-// Fonction pour créer un tableau HTML et ajouter les boutons de copie
+// Fonction pour créer un tableau HTML
 function createTable(groupName, rows, selectedFields) {
     // Créer un div wrapper pour chaque tableau avec les styles responsives
     const tableWrapper = document.createElement('div');
@@ -313,40 +316,8 @@ function createTable(groupName, rows, selectedFields) {
         });
     });
 
-    // Bouton pour copier le tableau tel qu'il s'affiche avec son style
-    const copyDisplayedButton = document.createElement('button');
-    copyDisplayedButton.innerText = "Copier le tableau tel qu'affiché";
-    copyDisplayedButton.onclick = () => copyTableWithStyles(table);
-    tableWrapper.appendChild(copyDisplayedButton);
-
     tableWrapper.appendChild(table);
     return tableWrapper;
-}
-
-// Fonction pour copier le tableau avec son style visuel
-function copyTableWithStyles(table) {
-    // Crée un document temporaire pour copier le style
-    const tempDiv = document.createElement("div");
-    tempDiv.appendChild(table.cloneNode(true)); // Clonage du tableau avec les enfants
-
-    // Ajout du style en ligne pour copier le style visuel
-    tempDiv.querySelectorAll("table, th, td").forEach(el => {
-        const style = window.getComputedStyle(el);
-        el.style.border = style.border;
-        el.style.padding = style.padding;
-        el.style.backgroundColor = style.backgroundColor;
-        el.style.color = style.color;
-        el.style.fontSize = style.fontSize;
-        el.style.textAlign = style.textAlign;
-    });
-
-    // Convertit le contenu en HTML et copie dans le presse-papiers
-    const htmlContent = tempDiv.innerHTML;
-    navigator.clipboard.writeText(htmlContent).then(() => {
-        alert("Tableau copié tel qu'affiché avec son style !");
-    }).catch(err => {
-        console.error("Erreur lors de la copie du tableau : ", err);
-    });
 }
 
 // Fonction de conversion personnalisée pour les dates au format dd-mm-yyyy hh:mm:ss
@@ -359,4 +330,3 @@ function parseDate(dateStr) {
 
 </body>
 </html>
-
