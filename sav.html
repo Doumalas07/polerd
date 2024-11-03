@@ -5,87 +5,100 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Analyse et Extraction des Données</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.2/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         /* Styles généraux */
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
-            font-size: 14px; /* Réduction de la taille de la police */
+            font-size: 14px;
+            color: #333;
+            background-color: #f9f9f9;
         }
 
         h2, h3 {
-            color: #1a73e8; /* Bleu pour les titres principaux */
-            font-size: 18px; /* Réduction de la taille de la police des titres */
-        }
-
-        h3 {
-            border-bottom: 2px solid #1a73e8;
-            padding-bottom: 5px;
-            margin-bottom: 10px;
+            color: #1a73e8;
+            text-align: center;
         }
 
         /* Styles pour les boutons */
         button {
-            background-color: #ff6f00; /* Orange */
+            background-color: #ff6f00;
             color: white;
             border: none;
-            padding: 8px; /* Réduction de la taille du bouton */
+            padding: 10px 15px;
             cursor: pointer;
-            margin: 5px 0;
             border-radius: 4px;
-            font-size: 12px; /* Réduction de la taille de la police */
+            font-size: 14px;
             width: 100%;
-            max-width: 200px;
+            max-width: 250px;
         }
 
         button:hover {
-            background-color: #e65a00; /* Orange plus foncé pour hover */
+            background-color: #e65a00;
         }
 
-        /* Container pour les tableaux, en deux colonnes */
-        #tablesContainer {
+        /* Styles pour le conteneur */
+        #tablesContainer, .table-wrapper, #dashboard {
             display: flex;
             flex-wrap: wrap;
             gap: 20px;
-            justify-content: space-between;
-        }
-
-        /* Styles pour chaque conteneur de tableau */
-        .table-wrapper {
-            flex: 1 1 calc(50% - 20px); /* Prend la moitié de la largeur moins l'espace entre les colonnes */
-            box-sizing: border-box;
             margin-bottom: 20px;
-            max-width: calc(50% - 20px); /* Limite chaque tableau à 50% de la largeur */
         }
 
-        /* Styles pour les tableaux */
+        .table-wrapper, #statsTable, #dashboard {
+            background: white;
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 10px;
+            font-size: 12px;
         }
 
         th, td {
-            border: 1px solid #ff6f00; /* Bordures orange */
-            padding: 8px; /* Réduction de la taille des cellules */
-            text-align: left;
-            font-size: 12px; /* Réduction de la taille de la police dans le tableau */
+            border: 1px solid #ff6f00;
+            padding: 8px;
         }
 
         th {
-            background-color: #1a73e8; /* Bleu pour l'en-tête */
+            background-color: #1a73e8;
             color: white;
         }
 
         td {
-            background-color: #f1f8ff; /* Fond bleu clair pour les cellules */
+            background-color: #f1f8ff;
         }
 
-        /* Media query pour les petits écrans */
+        .message-container {
+            border: 1px solid #1a73e8;
+            border-radius: 8px;
+            padding: 15px;
+            background-color: #f1f8ff;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        /* Responsive styles */
         @media (max-width: 768px) {
-            .table-wrapper {
-                flex: 1 1 100%; /* Chaque tableau prend 100% de la largeur sur les petits écrans */
-                max-width: 100%;
+            body {
+                margin: 10px;
+            }
+
+            button, h2, h3, .message-container, #statsTable, table th, table td {
+                font-size: 13px;
+                padding: 8px;
+            }
+
+            h2, h3 {
+                font-size: 16px;
+            }
+
+            #tablesContainer, #dashboard {
+                flex-direction: column;
             }
         }
     </style>
@@ -94,39 +107,39 @@
 
 <h2>PÔLE R&D - Amélioration Inactivité</h2>
 
-<!-- Charger le fichier CSV ou Excel -->
+<!-- Chargement du fichier CSV ou Excel -->
 <input type="file" id="fileInput" accept=".csv, .xlsx" />
 <button onclick="processFile()">Analyser Extraction</button>
 
 <div id="fieldSelection" style="display:none;">
-    <h3>Choisissez les champs à afficher :</h3>
+    <h3>Options de sélection</h3>
     <div id="fieldsContainer"></div>
-
-    <h3>Date la plus récente trouvée dans le fichier :</h3>
-    <p id="latestDateDisplay"></p>
-
-    <h3>Filtrer par date (Date inférieure à la date sélectionnée, format : dd-mm-yyyy hh:mm:ss) :</h3>
+    <h3>Date la plus récente : <span id="latestDateDisplay"></span></h3>
     <input type="text" id="dateFilter" placeholder="29-10-2024 19:55:57" />
-
-    <!-- Ajout du filtre de sélection pour le message -->
-    <h3>Choisissez le message à afficher :</h3>
     <select id="messageFilter">
         <option value="Freetrack">Option Freetrack</option>
         <option value="Libellule">Option Libellule</option>
     </select>
-
-    <button onclick="displayTables(false)">Afficher les tableaux sans filtre</button>
-    <button onclick="displayTables(true)">Afficher les tableaux avec filtre</button>
+    <button onclick="displayTables(false)">Afficher sans filtre</button>
+    <button onclick="displayTables(true)">Afficher avec filtre</button>
+    <button onclick="exportToExcel()">Exporter en Excel</button>
 </div>
 
 <div id="tablesContainer"></div>
+<div id="statsContainer"></div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+    <h3>Tableau de Bord Graphique</h3>
+    <canvas id="groupChart" width="400" height="200"></canvas>
+    <canvas id="namesChart" width="400" height="200"></canvas>
+</div>
 
 <script>
-let dataHeaders = []; // Stocke les noms de colonnes
-let groupedData = {}; // Stocke les données groupées
-let latestDateStr = ""; // Stocke la date la plus récente en format chaîne
+let dataHeaders = [];
+let groupedData = {};
+let latestDateStr = "";
 
-// Fonction pour traiter le fichier chargé
 function processFile() {
     const fileInput = document.getElementById('fileInput').files[0];
     if (!fileInput) {
@@ -135,7 +148,6 @@ function processFile() {
     }
 
     const reader = new FileReader();
-
     if (fileInput.name.endsWith('.xlsx')) {
         reader.readAsArrayBuffer(fileInput);
         reader.onload = function(event) {
@@ -143,12 +155,6 @@ function processFile() {
             const workbook = XLSX.read(data, { type: 'array' });
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
             const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-
-            if (jsonData.length === 0) {
-                alert("Le fichier est vide ou le format n'est pas correct.");
-                return;
-            }
-
             analyzeData(jsonData);
         };
     } else if (fileInput.name.endsWith('.csv')) {
@@ -156,176 +162,143 @@ function processFile() {
         reader.onload = function(event) {
             const csvData = event.target.result;
             const jsonData = XLSX.utils.sheet_to_json(XLSX.read(csvData, { type: 'string' }).Sheets.Sheet1, { header: 1 });
-
-            if (jsonData.length === 0) {
-                alert("Le fichier est vide ou le format n'est pas correct.");
-                return;
-            }
-
             analyzeData(jsonData);
         };
     } else {
-        alert("Format de fichier non supporté. Veuillez utiliser un fichier .csv ou .xlsx.");
+        alert("Format de fichier non supporté.");
     }
 }
 
-// Fonction pour analyser les données et afficher les options de sélection de champs
 function analyzeData(data) {
-    dataHeaders = data[0]; // Enregistre les noms des colonnes
+    dataHeaders = data[0];
     const rows = data.slice(1);
-
     const groupIndex = dataHeaders.indexOf("Groupe");
     const nameIndex = dataHeaders.indexOf("Nom");
     const dateIndex = dataHeaders.indexOf("Dernière connexion");
-    const simIndex = dataHeaders.indexOf("Numéro SIM");
-    const imeiIndex = dataHeaders.indexOf("IMEI ou identifiant de l'Appareil");
-
-    if (groupIndex === -1 || nameIndex === -1 || dateIndex === -1 || simIndex === -1 || imeiIndex === -1) {
-        alert("Certaines colonnes sont manquantes dans le fichier. Veuillez vérifier le fichier et réessayer.");
-        return;
-    }
-
     groupedData = {};
-
     let latestDate = null;
 
-    // Filtrer les données par groupe et trouver la date la plus récente
     rows.forEach(row => {
         const group = row[groupIndex];
         if (!groupedData[group]) groupedData[group] = [];
         groupedData[group].push(row);
 
         const rowDateStr = row[dateIndex];
-        if (typeof rowDateStr === 'string') {
-            const rowDate = parseDate(rowDateStr);
-            if (rowDate && (!latestDate || rowDate > latestDate)) {
-                latestDate = rowDate;
-                latestDateStr = rowDateStr;
-            }
+        const rowDate = parseDate(rowDateStr);
+        if (rowDate && (!latestDate || rowDate > latestDate)) {
+            latestDate = rowDate;
+            latestDateStr = rowDateStr;
         }
     });
 
-    // Afficher la date la plus récente
-    document.getElementById('latestDateDisplay').innerText = latestDateStr || "Aucune date valide trouvée";
-
-    // Afficher les options de sélection de champs
+    document.getElementById('latestDateDisplay').innerText = latestDateStr || "Aucune date trouvée";
     displayFieldOptions(dataHeaders);
+    displayStats();
+    updateDashboard();
 }
 
-// Fonction de conversion personnalisée pour les dates au format dd-mm-yyyy hh:mm:ss
 function parseDate(dateStr) {
+    if (typeof dateStr !== 'string') return null; // Vérifie que dateStr est bien une chaîne
     const [day, month, year, hour, minute, second] = dateStr.split(/[- :]/).map(Number);
     return new Date(year, month - 1, day, hour, minute, second);
 }
 
-// Fonction pour afficher les options de sélection de champs
 function displayFieldOptions(headers) {
     const fieldsContainer = document.getElementById('fieldsContainer');
-    fieldsContainer.innerHTML = ''; // Réinitialise le contenu
-
+    fieldsContainer.innerHTML = '';
     headers.forEach(header => {
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.id = header;
-        checkbox.value = header;
-        checkbox.checked = true; // Coche toutes les cases par défaut
-
-        const label = document.createElement('label');
-        label.htmlFor = header;
-        label.innerText = header;
-
-        fieldsContainer.appendChild(checkbox);
-        fieldsContainer.appendChild(label);
-        fieldsContainer.appendChild(document.createElement('br'));
+        fieldsContainer.innerHTML += `<label><input type="checkbox" value="${header}" checked /> ${header}</label><br>`;
     });
-
-    document.getElementById('fieldSelection').style.display = 'block'; // Affiche les options de sélection
+    document.getElementById('fieldSelection').style.display = 'block';
 }
 
-// Fonction pour afficher les tableaux en fonction des champs sélectionnés, du filtre de date et du message choisi
+function displayStats() {
+    const statsContainer = document.getElementById('statsContainer');
+    statsContainer.innerHTML = '<table id="statsTable"><tr><th>Groupe</th><th>Nombre</th></tr></table>';
+    let totalNames = 0;
+
+    for (const group in groupedData) {
+        const groupCount = groupedData[group].length;
+        totalNames += groupCount;
+        document.querySelector("#statsTable").innerHTML += `<tr><td>${group}</td><td>${groupCount}</td></tr>`;
+    }
+
+    document.querySelector("#statsTable").innerHTML += `<tr><td>Total Groupes</td><td>${totalNames}</td></tr>`;
+}
+
+function updateDashboard() {
+    const groupLabels = Object.keys(groupedData);
+    const groupCounts = groupLabels.map(group => groupedData[group].length);
+
+    const ctx1 = document.getElementById('groupChart').getContext('2d');
+    new Chart(ctx1, {
+        type: 'bar',
+        data: { labels: groupLabels, datasets: [{ label: 'Nombre par Groupe', data: groupCounts }] },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
+
+    const ctx2 = document.getElementById('namesChart').getContext('2d');
+    new Chart(ctx2, {
+        type: 'doughnut',
+        data: { labels: ['Total Noms'], datasets: [{ data: [groupCounts.reduce((a, v) => a + v, 0)] }] },
+        options: { responsive: true }
+    });
+}
+
 function displayTables(applyFilter) {
     const selectedFields = Array.from(document.querySelectorAll('#fieldsContainer input:checked')).map(input => input.value);
     const dateFilterStr = document.getElementById('dateFilter').value;
     const dateFilter = applyFilter && dateFilterStr ? parseDate(dateFilterStr) : null;
-    const selectedMessage = document.getElementById('messageFilter').value; // Récupère l'option de message sélectionnée
-
     const container = document.getElementById('tablesContainer');
-    container.innerHTML = ''; // Réinitialise les tableaux
+    container.innerHTML = '';
 
     Object.keys(groupedData).forEach(group => {
-        const filteredRows = groupedData[group].filter(row => {
-            const dateIndex = dataHeaders.indexOf("Dernière connexion");
-            const rowDateStr = row[dateIndex];
-
-            if (typeof rowDateStr === 'string') {
-                const rowDate = parseDate(rowDateStr);
-                return !applyFilter || !dateFilter || (rowDate && rowDate < dateFilter);
-            }
-            return !applyFilter;
-        }).map(row => {
-            const filteredRow = {};
-            selectedFields.forEach(field => {
-                filteredRow[field] = row[dataHeaders.indexOf(field)];
-            });
-            return filteredRow;
+        const rows = groupedData[group].map(row => {
+            return selectedFields.reduce((acc, field, i) => {
+                acc[field] = row[i];
+                return acc;
+            }, {});
         });
 
-        // Affiche uniquement les tableaux avec des valeurs
-        if (filteredRows.length > 0) {
-            // Ajoute le message correspondant avant chaque tableau, basé sur l'option sélectionnée
-            const messageContainer = document.createElement('div');
-            const message = (selectedMessage === "Freetrack")
-                ? `Bonjour cher partenaire "${group}",<br>Nous espérons que vous allez bien. Nous souhaitons vous informer que les gps de vos véhicules sont actuellement répertoriés comme inactifs sur notre plateforme de géolocalisation. Merci de nous préciser l’état de ces véhicules : sont-ils garés volontairement, en garage, ou en activité ? Vous trouverez ci-dessous la liste des véhicules identifiés comme inactifs sur la plateforme de géolocalisation.<br>Pour toute question ou préoccupation, n’hésitez pas à nous contacter.`
-                : `Bonjour cher partenaire "${group}",<br>Nous constatons que la balise de(s) camion(s) ci-dessous est inactive depuis une certaine date indiquée dans le tableau. Merci de nous indiquer l’état de votre camion s’il est garé volontairement, au garage, en attente de bon ou en activité et de vérifier à votre niveau sur votre plateforme l’état du GPS via le lien suivant:<br><a href="https://libellule.sudcontractors.com/">https://libellule.sudcontractors.com/</a><br>Dans le cas où vous constatez un dysfonctionnement de GPS, merci de mettre le véhicule à notre disposition pour maintenance avant tout chargement ou livraison. A défaut de mettre votre véhicule à notre disposition pour maintenance dans le cas d’un dysfonctionnement de l’équipement GPS, toutes les livraisons opérées dans l’intervalle des dates indiquées dans le tableau par les véhicules jusqu’à la date de leur maintenance ne sauraient être validées lors du contrôle de la péréquation.`;
+        if (rows.length > 0) {
+            const tableWrapper = document.createElement('div');
+            tableWrapper.classList.add('table-wrapper');
+            const table = document.createElement('table');
+            const headerRow = table.insertRow();
+            selectedFields.forEach(header => {
+                const cell = document.createElement('th');
+                cell.innerText = header;
+                headerRow.appendChild(cell);
+            });
 
-            messageContainer.innerHTML = `<p>${message}</p>`;
-            container.appendChild(messageContainer);
+            rows.forEach(row => {
+                const rowElement = table.insertRow();
+                selectedFields.forEach(field => {
+                    const cell = rowElement.insertCell();
+                    cell.innerText = row[field] || '';
+                });
+            });
 
-            // Crée le tableau et l'ajoute au conteneur principal
-            const tableContainer = createTable(group, filteredRows, selectedFields);
-            container.appendChild(tableContainer);
+            tableWrapper.appendChild(table);
+            container.appendChild(tableWrapper);
         }
     });
 }
 
-// Fonction pour créer un tableau HTML
-function createTable(groupName, rows, selectedFields) {
-    // Créer un div wrapper pour chaque tableau avec les styles responsives
-    const tableWrapper = document.createElement('div');
-    tableWrapper.classList.add('table-wrapper');
-
-    const title = document.createElement('h3');
-    title.innerText = `Groupe: ${groupName}`;
-    tableWrapper.appendChild(title);
-
-    const table = document.createElement('table');
-    table.border = "1";
-
-    const headerRow = table.insertRow();
-    selectedFields.forEach(header => {
-        const cell = document.createElement('th');
-        cell.innerText = header;
-        headerRow.appendChild(cell);
-    });
-
-    rows.forEach(row => {
-        const tableRow = table.insertRow();
-        selectedFields.forEach(field => {
-            const cell = tableRow.insertCell();
-            cell.innerText = row[field] || ''; // Affiche la donnée ou une chaîne vide si non définie
+function exportToExcel() {
+    const workbook = XLSX.utils.book_new();
+    Object.keys(groupedData).forEach(group => {
+        const sheetData = groupedData[group].map(row => {
+            return dataHeaders.reduce((acc, header, index) => {
+                acc[header] = row[index];
+                return acc;
+            }, {});
         });
+        const worksheet = XLSX.utils.json_to_sheet(sheetData);
+        XLSX.utils.book_append_sheet(workbook, worksheet, group.slice(0, 31));
     });
-
-    tableWrapper.appendChild(table);
-    return tableWrapper;
+    XLSX.writeFile(workbook, 'Données_Exportées.xlsx');
 }
-
-// Fonction de conversion personnalisée pour les dates au format dd-mm-yyyy hh:mm:ss
-function parseDate(dateStr) {
-    const [day, month, year, hour, minute, second] = dateStr.split(/[- :]/).map(Number);
-    return new Date(year, month - 1, day, hour, minute, second);
-}
-
 </script>
 
 </body>
