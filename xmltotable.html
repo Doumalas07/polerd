@@ -97,10 +97,10 @@
 </head>
 <body>
     <h1>PÔLE R&D - Gestion Imprimante</h1>
-    <p>Conversion de fichier XML en Tableau (Gestion des logs Imprimante).</p>
+    <p>Conversion de plusieurs fichiers XML en Tableau (Gestion des logs Imprimante).</p>
 
     <div id="controls">
-        <input type="file" id="xmlFileInput" accept=".xml" />
+        <input type="file" id="xmlFileInput" accept=".xml" multiple />
         <button id="exportBtn" disabled>Export as Excel</button>
         <button id="resetBtn">Reset</button>
     </div>
@@ -113,39 +113,51 @@
     </table>
 
     <script>
-        document.getElementById('xmlFileInput').addEventListener('change', handleFile);
+        document.getElementById('xmlFileInput').addEventListener('change', handleFiles);
         document.getElementById('exportBtn').addEventListener('click', exportToExcel);
         document.getElementById('resetBtn').addEventListener('click', resetInterface);
 
-        function handleFile(event) {
-            const file = event.target.files[0];
+        let allData = []; // To store combined data from all files
+
+        function handleFiles(event) {
+            const files = event.target.files;
             const loadingIndicator = document.getElementById('loading');
 
-            if (!file) {
-                alert('No file selected. Please upload a valid XML file.');
-                return;
-            }
-
-            // Validate file type
-            if (!file.name.endsWith('.xml')) {
-                alert('Invalid file type. Please upload an XML file.');
+            if (files.length === 0) {
+                alert('No files selected. Please upload valid XML files.');
                 return;
             }
 
             loadingIndicator.style.display = 'block';
+            allData = []; // Reset combined data
 
-            const reader = new FileReader();
-            reader.onload = () => {
-                try {
-                    parseXML(reader.result);
-                } catch (error) {
-                    alert('Invalid XML structure. Please check the file.');
-                    console.error('Parsing error:', error);
-                } finally {
-                    loadingIndicator.style.display = 'none';
+            let processedFiles = 0;
+            Array.from(files).forEach(file => {
+                if (!file.name.endsWith('.xml')) {
+                    alert(`Invalid file type: ${file.name}. Please upload only XML files.`);
+                    return;
                 }
-            };
-            reader.readAsText(file);
+
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        parseXML(reader.result);
+                    } catch (error) {
+                        console.error(`Error parsing file ${file.name}:`, error);
+                    } finally {
+                        processedFiles++;
+                        if (processedFiles === files.length) {
+                            loadingIndicator.style.display = 'none';
+                            if (allData.length > 0) {
+                                populateTable(allData);
+                            } else {
+                                alert('No valid data found in the selected files.');
+                            }
+                        }
+                    }
+                };
+                reader.readAsText(file);
+            });
         }
 
         function parseXML(xmlString) {
@@ -159,20 +171,63 @@
 
             const logs = xmlDoc.getElementsByTagNameNS('*', 'print_job_log'); // Match namespace dynamically
 
+            if (logs.length === 0) {
+                return;
+            }
+
+            Array.from(logs).forEach(log => {
+                const common = log.getElementsByTagNameNS('*', 'common')[0];
+                const detail = log.getElementsByTagNameNS('*', 'detail')[0];
+                const startTime = parseDate(log.getElementsByTagNameNS('*', 'start_time')[0]);
+                const endTime = parseDate(log.getElementsByTagNameNS('*', 'end_time')[0]);
+
+                const rowData = [
+                    common?.getElementsByTagNameNS('*', 'job_number')[0]?.textContent || '',
+                    common?.getElementsByTagNameNS('*', 'job_kind')[0]?.textContent || '',
+                    common?.getElementsByTagNameNS('*', 'job_name')[0]?.textContent || '',
+                    common?.getElementsByTagNameNS('*', 'job_result')[0]?.textContent || '',
+                    common?.getElementsByTagNameNS('*', 'account_name')[0]?.textContent || '',
+                    common?.getElementsByTagNameNS('*', 'account_code')[0]?.textContent || '',
+                    common?.getElementsByTagNameNS('*', 'pages')[0]?.textContent || '',
+                    detail?.getElementsByTagNameNS('*', 'print_color_mode')[0]?.textContent || '',
+                    detail?.getElementsByTagNameNS('*', 'complete_copies')[0]?.textContent || '',
+                    detail?.getElementsByTagNameNS('*', 'complete_pages')[0]?.textContent || '',
+                    startTime,
+                    endTime
+                ];
+
+                allData.push(rowData);
+            });
+        }
+
+        function parseDate(timeNode) {
+            if (!timeNode) return '';
+
+            const year = timeNode.getElementsByTagNameNS('*', 'year')[0]?.textContent || '0';
+            const month = timeNode.getElementsByTagNameNS('*', 'month')[0]?.textContent || '0';
+            const day = timeNode.getElementsByTagNameNS('*', 'day')[0]?.textContent || '0';
+            const hour = timeNode.getElementsByTagNameNS('*', 'hour')[0]?.textContent || '0';
+            const minute = timeNode.getElementsByTagNameNS('*', 'minute')[0]?.textContent || '0';
+            const second = timeNode.getElementsByTagNameNS('*', 'second')[0]?.textContent || '0';
+
+            return `${parseInt(year) + 1900}-${padZero(parseInt(month) + 1)}-${padZero(day)} ${padZero(hour)}:${padZero(minute)}:${padZero(second)}`;
+        }
+
+        function padZero(value) {
+            return value.toString().padStart(2, '0');
+        }
+
+        function populateTable(data) {
             const tableHeader = document.getElementById('tableHeader');
             const tableBody = document.getElementById('tableBody');
             tableHeader.innerHTML = '';
             tableBody.innerHTML = '';
 
-            if (logs.length === 0) {
-                alert('No print job logs found in the XML file.');
-                return;
-            }
-
             const headers = [
                 'Job Number', 'Job Kind', 'Job Name', 'Job Result',
                 'Account Name', 'Account Code', 'Pages',
-                'Print Color Mode', 'Complete Copies', 'Complete Pages'
+                'Print Color Mode', 'Complete Copies', 'Complete Pages',
+                'Start Time', 'End Time'
             ];
 
             // Create table headers
@@ -185,30 +240,13 @@
             tableHeader.appendChild(headerRow);
 
             // Populate table rows
-            Array.from(logs).forEach(log => {
+            data.forEach(rowData => {
                 const row = document.createElement('tr');
-                const common = log.getElementsByTagNameNS('*', 'common')[0];
-                const detail = log.getElementsByTagNameNS('*', 'detail')[0];
-
-                const rowData = [
-                    common?.getElementsByTagNameNS('*', 'job_number')[0]?.textContent || '',
-                    common?.getElementsByTagNameNS('*', 'job_kind')[0]?.textContent || '',
-                    common?.getElementsByTagNameNS('*', 'job_name')[0]?.textContent || '',
-                    common?.getElementsByTagNameNS('*', 'job_result')[0]?.textContent || '',
-                    common?.getElementsByTagNameNS('*', 'account_name')[0]?.textContent || '',
-                    common?.getElementsByTagNameNS('*', 'account_code')[0]?.textContent || '',
-                    common?.getElementsByTagNameNS('*', 'pages')[0]?.textContent || '',
-                    detail?.getElementsByTagNameNS('*', 'print_color_mode')[0]?.textContent || '',
-                    detail?.getElementsByTagNameNS('*', 'complete_copies')[0]?.textContent || '',
-                    detail?.getElementsByTagNameNS('*', 'complete_pages')[0]?.textContent || ''
-                ];
-
                 rowData.forEach(cellData => {
                     const td = document.createElement('td');
                     td.textContent = cellData;
                     row.appendChild(td);
                 });
-
                 tableBody.appendChild(row);
             });
 
@@ -226,7 +264,7 @@
             XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
 
             try {
-                XLSX.writeFile(workbook, 'converted_table.xlsx');
+                XLSX.writeFile(workbook, 'combined_data.xlsx');
             } catch (error) {
                 alert('Export failed. Please try a different browser if the issue persists.');
                 console.error('Export error:', error);
@@ -239,6 +277,7 @@
             document.getElementById('tableBody').innerHTML = '';
             document.getElementById('exportBtn').disabled = true;
             document.getElementById('loading').style.display = 'none';
+            allData = [];
         }
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
