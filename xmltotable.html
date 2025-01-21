@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XML to Table Converter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f8ff; /* Light blue background */
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #ff8c00;
+            text-align: center;
+        }
+        p {
+            color: #555;
+            text-align: center;
+        }
+        #controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        input[type="file"],
+        #exportBtn,
+        #resetBtn {
+            padding: 10px 20px;
+            border: 1px solid #ff8c00;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        input[type="file"] {
+            background-color: #fff;
+            color: #333;
+        }
+        #exportBtn {
+            background-color: #ff8c00;
+            color: white;
+        }
+        #exportBtn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        #exportBtn:hover:enabled {
+            background-color: #e67e00;
+        }
+        #resetBtn {
+            background-color: #d9534f;
+            color: white;
+        }
+        #resetBtn:hover {
+            background-color: #c9302c;
+        }
+        #loading {
+            display: none;
+            font-size: 18px;
+            color: #1e90ff;
+            margin-top: 10px;
+        }
+        table {
+            width: 100%;
+            max-width: 1000px;
+            margin: 20px auto;
+            border-collapse: collapse;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            padding: 12px;
+            border: 1px solid #ff8c00;
+            text-align: left;
+        }
+        th {
+            background-color: #1e90ff;
+            color: white;
+        }
+        td {
+            background-color: #fff;
+        }
+        @media (max-width: 600px) {
+            table {
+                font-size: 14px;
+            }
+            th, td {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>PÔLE R&D - Gestion Imprimante</h1>
+    <p>Conversion de fichier XML en Tableau (Gestion des logs Imprimante).</p>
+
+    <div id="controls">
+        <input type="file" id="xmlFileInput" accept=".xml" />
+        <button id="exportBtn" disabled>Export as Excel</button>
+        <button id="resetBtn">Reset</button>
+    </div>
+
+    <div id="loading">Chargement en cours...</div>
+
+    <table id="outputTable">
+        <thead id="tableHeader"></thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+
+    <script>
+        document.getElementById('xmlFileInput').addEventListener('change', handleFile);
+        document.getElementById('exportBtn').addEventListener('click', exportToExcel);
+        document.getElementById('resetBtn').addEventListener('click', resetInterface);
+
+        function handleFile(event) {
+            const file = event.target.files[0];
+            const loadingIndicator = document.getElementById('loading');
+
+            if (!file) {
+                alert('No file selected. Please upload a valid XML file.');
+                return;
+            }
+
+            // Validate file type
+            if (!file.name.endsWith('.xml')) {
+                alert('Invalid file type. Please upload an XML file.');
+                return;
+            }
+
+            loadingIndicator.style.display = 'block';
+
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    parseXML(reader.result);
+                } catch (error) {
+                    alert('Invalid XML structure. Please check the file.');
+                    console.error('Parsing error:', error);
+                } finally {
+                    loadingIndicator.style.display = 'none';
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function parseXML(xmlString) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
+
+            // Check for XML parsing errors
+            if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
+                throw new Error('Error parsing XML. Invalid format.');
+            }
+
+            const logs = xmlDoc.getElementsByTagNameNS('*', 'print_job_log'); // Match namespace dynamically
+
+            const tableHeader = document.getElementById('tableHeader');
+            const tableBody = document.getElementById('tableBody');
+            tableHeader.innerHTML = '';
+            tableBody.innerHTML = '';
+
+            if (logs.length === 0) {
+                alert('No print job logs found in the XML file.');
+                return;
+            }
+
+            const headers = [
+                'Job Number', 'Job Kind', 'Job Name', 'Job Result',
+                'Account Name', 'Account Code', 'Pages',
+                'Print Color Mode', 'Complete Copies', 'Complete Pages'
+            ];
+
+            // Create table headers
+            const headerRow = document.createElement('tr');
+            headers.forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header;
+                headerRow.appendChild(th);
+            });
+            tableHeader.appendChild(headerRow);
+
+            // Populate table rows
+            Array.from(logs).forEach(log => {
+                const row = document.createElement('tr');
+                const common = log.getElementsByTagNameNS('*', 'common')[0];
+                const detail = log.getElementsByTagNameNS('*', 'detail')[0];
+
+                const rowData = [
+                    common?.getElementsByTagNameNS('*', 'job_number')[0]?.textContent || '',
+                    common?.getElementsByTagNameNS('*', 'job_kind')[0]?.textContent || '',
+                    common?.getElementsByTagNameNS('*', 'job_name')[0]?.textContent || '',
+                    common?.getElementsByTagNameNS('*', 'job_result')[0]?.textContent || '',
+                    common?.getElementsByTagNameNS('*', 'account_name')[0]?.textContent || '',
+                    common?.getElementsByTagNameNS('*', 'account_code')[0]?.textContent || '',
+                    common?.getElementsByTagNameNS('*', 'pages')[0]?.textContent || '',
+                    detail?.getElementsByTagNameNS('*', 'print_color_mode')[0]?.textContent || '',
+                    detail?.getElementsByTagNameNS('*', 'complete_copies')[0]?.textContent || '',
+                    detail?.getElementsByTagNameNS('*', 'complete_pages')[0]?.textContent || ''
+                ];
+
+                rowData.forEach(cellData => {
+                    const td = document.createElement('td');
+                    td.textContent = cellData;
+                    row.appendChild(td);
+                });
+
+                tableBody.appendChild(row);
+            });
+
+            document.getElementById('exportBtn').disabled = false;
+        }
+
+        function exportToExcel() {
+            const table = document.getElementById('outputTable');
+            const rows = Array.from(table.rows);
+
+            let workbook = XLSX.utils.book_new();
+            let worksheetData = rows.map(row => Array.from(row.cells).map(cell => cell.textContent));
+
+            let worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+            try {
+                XLSX.writeFile(workbook, 'converted_table.xlsx');
+            } catch (error) {
+                alert('Export failed. Please try a different browser if the issue persists.');
+                console.error('Export error:', error);
+            }
+        }
+
+        function resetInterface() {
+            document.getElementById('xmlFileInput').value = '';
+            document.getElementById('tableHeader').innerHTML = '';
+            document.getElementById('tableBody').innerHTML = '';
+            document.getElementById('exportBtn').disabled = true;
+            document.getElementById('loading').style.display = 'none';
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</body>
+</html>
